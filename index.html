@@ -141,6 +141,36 @@
             color: #64b5f6;
         }
 
+        /* ===== 首页汇总统计面板 ===== */
+        .summary-panel {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 18px;
+            flex-wrap: wrap;
+        }
+        .summary-item {
+            text-align: center;
+            padding: 10px 18px;
+            background: rgba(0,0,0,0.22);
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.06);
+            min-width: 80px;
+        }
+        .summary-label {
+            font-size: 0.72em;
+            color: #8892b0;
+            margin-bottom: 4px;
+        }
+        .summary-value {
+            font-size: 1.2em;
+            font-weight: 700;
+        }
+        .summary-value.up   { color: #ff4d4d; }
+        .summary-value.down { color: #00c853; }
+        .summary-value.flat { color: #ff9800; }
+        .summary-value.neutral { color: #e0e0e0; }
+
         /* ===== 分类板块 ===== */
         .category {
             margin-bottom: 22px;
@@ -343,6 +373,24 @@
     <div class="header">
         <h1>2026年核心赛道 20大细分领域</h1>
         <p>AI算力产业链核心股票实时监控</p>
+        <div class="summary-panel" id="summaryPanel">
+            <div class="summary-item">
+                <div class="summary-label">红</div>
+                <div class="summary-value up" id="sumUp">--</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">绿</div>
+                <div class="summary-value down" id="sumDown">--</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">未上市</div>
+                <div class="summary-value neutral" id="sumUnlisted">--</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">平均涨幅</div>
+                <div class="summary-value neutral" id="sumAvg">--</div>
+            </div>
+        </div>
         <div class="update-time">
             <span class="market-status market-open" id="marketDot"></span>
             最后更新: <span id="lastUpdate">--</span>
@@ -741,6 +789,46 @@ function updateCategoryStats() {
                            '均: <span style="color:' + color + '">' + (avg >= 0 ? '+' : '') + avg.toFixed(2) + '%</span>';
         }
     });
+    updateGlobalSummary();
+}
+
+function updateGlobalSummary() {
+    var totalUp = 0, totalDown = 0, totalFlat = 0, totalSum = 0, totalCnt = 0, unlisted = 0;
+
+    stockCategories.forEach(function(cat) {
+        cat.stocks.forEach(function(s) {
+            if (!s.code) {
+                unlisted++;
+                return;
+            }
+            var d = stockData[s.code];
+            if (d) {
+                if (d.pct > 0)       totalUp++;
+                else if (d.pct < 0)  totalDown++;
+                else                 totalFlat++;
+                totalSum += d.pct;
+                totalCnt++;
+            }
+        });
+    });
+
+    var upEl = document.getElementById('sumUp');
+    var downEl = document.getElementById('sumDown');
+    var unlEl = document.getElementById('sumUnlisted');
+    var avgEl = document.getElementById('sumAvg');
+
+    if (upEl)   upEl.textContent   = totalUp;
+    if (downEl) downEl.textContent = totalDown;
+    if (unlEl)  unlEl.textContent  = unlisted;
+
+    if (avgEl && totalCnt > 0) {
+        var avg = totalSum / totalCnt;
+        avgEl.textContent = (avg >= 0 ? '+' : '') + avg.toFixed(2) + '%';
+        avgEl.className = 'summary-value ' + (avg > 0 ? 'up' : (avg < 0 ? 'down' : 'neutral'));
+    } else if (avgEl) {
+        avgEl.textContent = '--';
+        avgEl.className = 'summary-value neutral';
+    }
 }
 
 // ========== 手动刷新 ==========
