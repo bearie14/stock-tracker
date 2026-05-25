@@ -190,6 +190,7 @@
             transition: all 0.2s ease;
             position: relative;
             overflow: hidden;
+            cursor: pointer;
         }
         .stock-card:hover {
             transform: translateY(-2px);
@@ -566,6 +567,11 @@ function renderStructure() {
             var card = document.createElement('div');
             card.className = 'stock-card flat';
             card.id = 'stock-' + ci + '-' + si;
+            card.onclick = (function(sc) {
+                return function() {
+                    if (sc) window.open('https://quote.eastmoney.com/' + sc + '.html', '_blank');
+                };
+            })(stock.code);
 
             if (stock.code) {
                 card.innerHTML =
