@@ -567,6 +567,7 @@ function renderStructure() {
             var card = document.createElement('div');
             card.className = 'stock-card flat';
             card.id = 'stock-' + ci + '-' + si;
+            card.title = stock.code ? '点击查看' + stock.name + '（' + stock.code.substring(2) + '）分时图' : '';
             card.onclick = (function(sc) {
                 return function() {
                     if (sc) window.open('https://quote.eastmoney.com/' + sc + '.html', '_blank');
@@ -576,7 +577,7 @@ function renderStructure() {
             if (stock.code) {
                 card.innerHTML =
                     '<div class="stock-header">' +
-                        '<span class="stock-name">' + stock.name + '</span>' +
+                        '<span class="stock-name">' + stock.name + ' <span style="font-size:0.7em;opacity:0.5;">↗</span></span>' +
                         '<span class="stock-code">' + stock.code.substring(2) + '</span>' +
                     '</div>' +
                     '<div class="stock-price-info">' +
