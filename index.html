@@ -274,6 +274,22 @@
             font-size: 0.78em;
             color: #8892b0;
         }
+        .capital-inflow {
+            margin-top: 7px;
+            padding-top: 7px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78em;
+            color: #8892b0;
+        }
+        .capital-inflow .val {
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+        }
+        .capital-inflow .val.in  { color: #ff4d4d; }
+        .capital-inflow .val.out { color: #00c853; }
+        .capital-inflow .val.flat { color: #8892b0; }
 
         /* ===== 加载遮罩 ===== */
         .loading-overlay {
@@ -653,6 +669,10 @@ function renderStructure() {
                     '<div class="stock-extra">' +
                         '<span>今开: <span class="open-price">--</span></span>' +
                         '<span>最高: <span class="high-price">--</span></span>' +
+                    '</div>' +
+                    '<div class="capital-inflow">' +
+                        '<span>主力净流入</span>' +
+                        '<span class="val" id="inflow-' + ci + '-' + si + '">--</span>' +
                     '</div>';
             } else {
                 card.innerHTML =
@@ -691,6 +711,7 @@ function fetchAllStockData() {
               now.getMinutes().toString().padStart(2,'0') + ':' +
               now.getSeconds().toString().padStart(2,'0');
     document.getElementById('lastUpdate').textContent = ts;
+    fetchCapitalInflow();
 }
 
 function fetchBatch(codes) {
@@ -726,6 +747,96 @@ function checkLoadingDone() {
 }
 
 // ========== 解析单只股票 ==========
+// ========= 格式化主力净流入 =========
+function formatInflow(val) {
+    if (val === undefined || val === null || isNaN(val)) return '--';
+    var abs = Math.abs(val);
+    if (abs >= 1e8)  return (val / 1e8).toFixed(2) + '亿';
+    if (abs >= 1e4)  return (val / 1e4).toFixed(2) + '万';
+    return val.toFixed(0);
+}
+
+// ========= 股票代码 → 东方财富 secid =========
+function codeToSecid(code) {
+    if (code.startsWith('sh')) return '1.' + code.substring(2);
+    if (code.startsWith('sz')) return '0.' + code.substring(2);
+    if (code.startsWith('bj')) return '0.' + code.substring(2);
+    return '';
+}
+
+var secidToCodeMap = {};
+function buildSecidMap() {
+    secidToCodeMap = {};
+    stockCategories.forEach(function(cat) {
+        cat.stocks.forEach(function(s) {
+            if (s.code) {
+                var sid = codeToSecid(s.code);
+                if (sid) secidToCodeMap[sid] = s.code;
+            }
+        });
+    });
+}
+
+// ========= 获取主力净流入（东方财富 f62）=========
+function fetchCapitalInflow() {
+    var secids = [];
+    stockCategories.forEach(function(cat) {
+        cat.stocks.forEach(function(s) {
+            if (s.code) {
+                var sid = codeToSecid(s.code);
+                if (sid) secids.push(sid);
+            }
+        });
+    });
+    if (secids.length === 0) return;
+
+    var BATCH = 20;
+    for (var i = 0; i < secids.length; i += BATCH) {
+        (function(batch) {
+            var cbName = 'em_cf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            window[cbName] = function(resp) {
+                try {
+                    if (resp && resp.data && resp.data.diff) {
+                        resp.data.diff.forEach(function(item) {
+                            var sid = item.f13 + '.' + item.f12;
+                            var fc = secidToCodeMap[sid];
+                            if (fc && item.f62 !== undefined) {
+                                if (!stockData[fc]) stockData[fc] = {};
+                                stockData[fc].capitalInflow = item.f62;
+                                updateInflowDisplay(fc);
+                            }
+                        });
+                    }
+                } catch(e) {}
+                try { delete window[cbName]; } catch(e) {}
+            };
+            var sc = document.createElement('script');
+            sc.src = 'https://push2.eastmoney.com/api/qt/list/get?secids=' + batch.join(',') + '&fields=f12,f13,f62&callback=' + cbName;
+            sc.onload = function() { try { document.head.removeChild(sc); } catch(e) {} };
+            sc.onerror = function() { try { document.head.removeChild(sc); } catch(e) {} };
+            document.head.appendChild(sc);
+        })(secids.slice(i, i + BATCH));
+    }
+}
+
+function updateInflowDisplay(code) {
+    var d = stockData[code];
+    if (!d || d.capitalInflow === undefined) return;
+    stockCategories.forEach(function(cat, ci) {
+        cat.stocks.forEach(function(stock, si) {
+            if (stock.code !== code) return;
+            var el = document.getElementById('inflow-' + ci + '-' + si);
+            if (!el) return;
+            el.textContent = formatInflow(d.capitalInflow);
+            var cls = 'val';
+            if (d.capitalInflow > 0)  cls += ' in';
+            else if (d.capitalInflow < 0) cls += ' out';
+            else                          cls += ' flat';
+            el.className = cls;
+        });
+    });
+}
+
 function processStock(code, dataStr) {
     if (!dataStr) return;
     var p = dataStr.split('~');
@@ -781,6 +892,24 @@ function updateDisplay(code, info) {
         });
     });
     updateCategoryStats();
+
+    // 同时更新主力净流入显示
+    if (info.capitalInflow !== undefined) {
+        stockCategories.forEach(function(cat, ci) {
+            cat.stocks.forEach(function(stock, si) {
+                if (stock.code !== code) return;
+                var el = document.getElementById('inflow-' + ci + '-' + si);
+                if (el) {
+                    el.textContent = formatInflow(info.capitalInflow);
+                    var cls = 'val';
+                    if (info.capitalInflow > 0)  cls += ' in';
+                    else if (info.capitalInflow < 0) cls += ' out';
+                    else                          cls += ' flat';
+                    el.className = cls;
+                }
+            });
+        });
+    }
 }
 
 function updateCategoryStats() {
@@ -857,6 +986,7 @@ function manualRefresh() {
 // ========== 启动 ==========
 function init() {
     renderStructure();
+    buildSecidMap();
 
     // 恢复上次缩放
     try {
