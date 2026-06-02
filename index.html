@@ -779,54 +779,57 @@ function buildSecidMap() {
 }
 
 // ========= 获取主力净流入（东方财富）=========
-// 使用 push2.eastmoney.com/api/qt/clist/get 接口
-// 由于该接口不支持 secids 参数，我们直接请求全市场数据并筛选
+// 使用 push2.eastmoney.com/api/qt/ulist.np/get 接口
+// 支持 secids 参数，可以批量查询指定股票
 function fetchCapitalInflow() {
-    // 直接在页面中嵌入 JSONP 请求，获取按主力净流入排序的股票列表
-    var cbName = 'em_clist_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-    window[cbName] = function(resp) {
-        try {
-            if (resp && resp.data && resp.data.diff) {
-                // 建立代码到股票数据的映射
-                var inflowMap = {};
-                resp.data.diff.forEach(function(item) {
-                    if (!item || !item.f12) return;
-                    var code6 = item.f12;
-                    // f267 是主力净流入（元），f268 是主力净占比（%）
-                    if (item.f267 !== undefined) {
-                        inflowMap[code6] = {
-                            inflow: item.f267,
-                            pct: item.f268
-                        };
-                    }
-                });
-
-                // 更新我们的股票数据
-                stockCategories.forEach(function(cat) {
-                    cat.stocks.forEach(function(s) {
-                        if (!s.code) return;
-                        var code6 = s.code.substring(2); // 去掉 sh/sz/bj 前缀
-                        if (inflowMap[code6]) {
-                            if (!stockData[s.code]) stockData[s.code] = {};
-                            stockData[s.code].capitalInflow = inflowMap[code6].inflow;
-                            stockData[s.code].capitalInflowPct = inflowMap[code6].pct;
-                            updateInflowDisplay(s.code);
-                        }
-                    });
-                });
+    var secids = [];
+    stockCategories.forEach(function(cat) {
+        cat.stocks.forEach(function(s) {
+            if (s.code) {
+                var sid = codeToSecid(s.code);
+                if (sid) secids.push(sid);
             }
-        } catch(e) {
-            console.error('解析资金流列表数据失败:', e);
-        }
-        try { delete window[cbName]; } catch(e) {}
-    };
+        });
+    });
+    if (secids.length === 0) return;
 
-    var sc = document.createElement('script');
-    // 请求全市场数据，按主力净流入 f267 排序，获取前 100 只
-    sc.src = 'https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=1500&po=1&np=1&fltt=2&invt=2&fid=f267&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:90&fields=f12,f14,f267,f268&cb=' + cbName;
-    sc.onload = function() { try { document.head.removeChild(sc); } catch(e) {} };
-    sc.onerror = function() { try { document.head.removeChild(sc); } catch(e) {} };
-    document.head.appendChild(sc);
+    // 批量获取，每批最多 20 只
+    var BATCH = 20;
+    for (var i = 0; i < secids.length; i += BATCH) {
+        (function(batch) {
+            var cbName = 'em_cf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            window[cbName] = function(resp) {
+                try {
+                    if (resp && resp.data && resp.data.diff) {
+                        resp.data.diff.forEach(function(item) {
+                            if (!item || !item.f12) return;
+                            // f12=代码, f13=市场(1=沪,0=深/北交), f62=主力净流入
+                            var code6 = item.f12;
+                            var market = item.f13 === 1 ? 'sh' : 'sz';
+                            // 北交所代码是 8 开头或 920 开头
+                            if (code6.startsWith('8') || code6.startsWith('92')) {
+                                market = 'bj';
+                            }
+                            var key = market + code6;
+                            if (item.f62 !== undefined) {
+                                if (!stockData[key]) stockData[key] = {};
+                                stockData[key].capitalInflow = item.f62;
+                                updateInflowDisplay(key);
+                            }
+                        });
+                    }
+                } catch(e) {
+                    console.error('解析资金流数据失败:', e);
+                }
+                try { delete window[cbName]; } catch(e) {}
+            };
+            var sc = document.createElement('script');
+            sc.src = 'https://push2.eastmoney.com/api/qt/ulist.np/get?secids=' + batch.join(',') + '&fields=f12,f13,f62&cb=' + cbName;
+            sc.onload = function() { try { document.head.removeChild(sc); } catch(e) {} };
+            sc.onerror = function() { try { document.head.removeChild(sc); } catch(e) {} };
+            document.head.appendChild(sc);
+        })(secids.slice(i, i + BATCH));
+    }
 }
 
 function updateInflowDisplay(code) {
