@@ -624,7 +624,16 @@ function renderStructure() {
             card.title = stock.code ? '点击查看' + stock.name + '（' + stock.code.substring(2) + '）分时图' : '';
             card.onclick = (function(sc) {
                 return function() {
-                    if (sc) window.open('https://quote.eastmoney.com/' + sc + '.html', '_blank');
+                    if (sc) {
+                        var url;
+                        if (sc.startsWith('bj')) {
+                            // 北交所格式：bj/XXXXXX.html
+                            url = 'https://quote.eastmoney.com/bj/' + sc.substring(2) + '.html';
+                        } else {
+                            url = 'https://quote.eastmoney.com/' + sc + '.html';
+                        }
+                        window.open(url, '_blank');
+                    }
                 };
             })(stock.code);
 
