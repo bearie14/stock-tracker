@@ -750,7 +750,8 @@ function fetchAllStockData() {
               now.getSeconds().toString().padStart(2,'0');
     document.getElementById('lastUpdate').textContent = ts;
     fetchCapitalInflow();
-    // 获取分时数据
+    // 获取股价分时数据
+    fetchAllPriceTrends();
 }
 
 function fetchBatch(codes) {
@@ -790,32 +791,33 @@ function checkLoadingDone() {
 // 存储每只股票的分时数据
 var minuteData = {};
 
-// 计算当前时间占全天交易时间的比例 (9:30-15:00 = 330分钟)
+// 计算当前时间占全天交易时间的比例 (9:30-11:30 + 13:00-15:00 = 330分钟)
 function getTradingProgress() {
     var now = new Date();
     var h = now.getHours();
     var m = now.getMinutes();
-    // 非交易时间返回1（画满）
-    if (h < 9 || (h === 9 && m < 30)) return 0;
-    if (h > 15 || (h === 11 && m > 30) || (h === 12)) {
-        // 午休 11:30-13:00 跳过
-        if (h === 11 && m > 30) {
-            return (120 + 120) / 330;  // 上午 120 分钟 + 午休
-        }
-        if (h >= 13 && h < 15) {
-            return (120 + (h - 13) * 60 + m) / 330;
-        }
-        return 1;
+
+    // 非交易时间
+    if (h < 9 || (h === 9 && m < 30)) return 0;   // 未开盘
+    if (h >= 15) return 1;                                      // 收盘后
+
+    // 午休时间 11:30-13:00
+    if ((h === 11 && m >= 30) || h === 12) {
+        return 120 / 330;  // 上午120分钟 / 全天330分钟
     }
-    // 上午交易时间 9:30-11:30 = 120分钟
-    var mins = (h - 9) * 60 + m - 30;
-    if (mins < 0) mins = 0;
-    if (mins > 120) mins = 120;
-    // 下午交易时间 13:00-15:00 = 120分钟
-    if (h >= 13 && h < 15) {
-        mins = 120 + (h - 13) * 60 + m;
+
+    // 上午交易时间 9:30-11:30
+    if (h < 13) {
+        var mins = (h - 9) * 60 + m - 30;
+        if (mins < 0) mins = 0;
+        if (mins > 120) mins = 120;
+        return mins / 330;
     }
-    return Math.min(mins / 330, 1);
+
+    // 下午交易时间 13:00-15:00
+    var mins = 120 + (h - 13) * 60 + m;
+    if (mins > 330) mins = 330;
+    return mins / 330;
 }
 
 // 绘制单只股票的分时图（股价）
@@ -918,9 +920,16 @@ function fetchPriceTrend(code, ci, si) {
     document.head.appendChild(sc);
 }
 
-// 获取单只股票的主力净流入分时数据
-
-// 批量获取所有股票的分时数据
+// 批量获取所有股票的股价分时数据
+function fetchAllPriceTrends() {
+    stockCategories.forEach(function(cat, ci) {
+        cat.stocks.forEach(function(stock, si) {
+            if (stock.code) {
+                fetchPriceTrend(stock.code, ci, si);
+            }
+        });
+    });
+}
 
 // ========= 格式化主力净流入 =========
 function formatInflow(val) {
