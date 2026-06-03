@@ -292,14 +292,7 @@
         .capital-inflow .val.out { color: #00c853; }
         .capital-inflow .val.flat { color: #8892b0; }
 
-        /* ===== 分时图区域 ===== */
-        .stock-charts {
-            display: flex;
-            gap: 6px;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid rgba(255,255,255,0.05);
-        }
+
         .mini-chart-wrap {
             flex: 1;
             height: 52px;
@@ -320,6 +313,15 @@
             height: 100%;
             display: block;
         }
+        .stock-chart-single {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        .stock-chart-single .mini-chart-wrap {
+            width: 100%;
+        }
+
 
         /* ===== 加载遮罩 ===== */
         .loading-overlay {
@@ -700,13 +702,9 @@ function renderStructure() {
                         '<span>今开: <span class="open-price">--</span></span>' +
                         '<span>最高: <span class="high-price">--</span></span>' +
                     '</div>' +
-                    '<div class="stock-charts">' +
+                    '<div class="stock-chart-single">' +
                         '<div class="mini-chart-wrap" id="price-chart-' + ci + '-' + si + '">' +
-                            '<span class="chart-label">股价</span>' +
-                            '<svg viewBox="0 0 240 52" preserveAspectRatio="none"></svg>' +
-                        '</div>' +
-                        '<div class="mini-chart-wrap" id="flow-chart-' + ci + '-' + si + '">' +
-                            '<span class="chart-label">净流入</span>' +
+                            '<span class="chart-label">股价分时</span>' +
                             '<svg viewBox="0 0 240 52" preserveAspectRatio="none"></svg>' +
                         '</div>' +
                     '</div>' +
@@ -753,7 +751,6 @@ function fetchAllStockData() {
     document.getElementById('lastUpdate').textContent = ts;
     fetchCapitalInflow();
     // 获取分时数据
-    fetchAllTrends();
 }
 
 function fetchBatch(codes) {
@@ -897,78 +894,6 @@ function drawPriceChart(ci, si, trends) {
 }
 
 // 绘制主力净流入分时图
-function drawFlowChart(ci, si, klines) {
-    var wrap = document.getElementById('flow-chart-' + ci + '-' + si);
-    if (!wrap) return;
-    var svg = wrap.querySelector('svg');
-    if (!svg) return;
-
-    if (!klines || klines.length === 0) {
-        svg.innerHTML = '<text x="50%" y="50%" fill="#555" font-size="9" text-anchor="middle">暂无数据</text>';
-        return;
-    }
-
-    // klines 每条记录: "时间,f52(主力净流入万元?),f53,...,f62"
-    // 根据之前测试，f52 是主力净流入（元）
-    var values = [];
-    for (var i = 0; i < klines.length; i++) {
-        var parts = klines[i].split(',');
-        if (parts.length >= 2) {
-            var val = parseFloat(parts[1]);  // f52 = 主力净流入（元）
-            if (!isNaN(val)) values.push(val);
-        }
-    }
-    if (values.length === 0) {
-        svg.innerHTML = '<text x="50%" y="50%" fill="#555" font-size="9" text-anchor="middle">暂无数据</text>';
-        return;
-    }
-
-    var minV = Math.min.apply(null, values);
-    var maxV = Math.max.apply(null, values);
-    // 以0为中线
-    var absMax = Math.max(Math.abs(minV), Math.abs(maxV)) || 1;
-    minV = -absMax;
-    maxV = absMax;
-    var range = maxV - minV;
-    if (range < 0.01) range = 0.01;
-
-    var progress = getTradingProgress();
-    var drawCount = Math.ceil(values.length * progress);
-
-    var points = [];
-    for (var j = 0; j < drawCount; j++) {
-        var x = (j / (values.length - 1 || 1)) * 230 + 5;
-        var y = 5 + (1 - (values[j] - minV) / range) * 42;
-        points.push(x.toFixed(1) + ',' + y.toFixed(1));
-    }
-
-    // 判断整体净流入正负
-    var sumVal = 0;
-    for (var k = 0; k < values.length; k++) sumVal += values[k];
-    var color = sumVal >= 0 ? '#ff4d4d' : '#00c853';
-
-    var fillId = 'ff' + ci + '_' + si;
-    var defs = '<defs><linearGradient id="' + fillId + '" x1="0" y1="0" x2="0" y2="1">' +
-        '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.25"/>' +
-        '<stop offset="100%" stop-color="' + color + '" stop-opacity="0.02"/></linearGradient></defs>';
-
-    // 零线
-    var zeroY = 5 + (0 - minV) / range * 42;
-    var lines = '<line x1="5" y1="' + zeroY.toFixed(1) + '" x2="' + (5 + 230).toFixed(1) + '" y2="' + zeroY.toFixed(1) + '" stroke="#444" stroke-width="0.5" opacity="0.5"/>';
-
-    var fillPoints = points.join(' ') + ' ' + (5 + 230).toFixed(1) + ',' + zeroY.toFixed(1) + ' ' + '5,' + zeroY.toFixed(1);
-
-    svg.innerHTML = defs + lines +
-        '<polygon points="' + fillPoints + '" fill="url(#' + fillId + ')" />' +
-        '<polyline fill="none" stroke="' + color + '" stroke-width="1.2" stroke-linejoin="round" points="' + points.join(' ') + '"/>' +
-        (drawCount > 0 ? '<circle cx="' + points[points.length - 1].split(',')[0] + '" cy="' + points[points.length - 1].split(',')[1] + '" r="2" fill="' + color + '"/>' : '');
-
-    if (progress < 1) {
-        var dashStart = 5 + 230 * progress;
-        svg.innerHTML += '<line x1="' + dashStart + '" y1="5" x2="' + (5 + 230).toFixed(1) + '" y2="5" stroke="#555" stroke-width="0.5" stroke-dasharray="2,3" opacity="0.4"/>' +
-            '<line x1="' + dashStart + '" y1="' + (5 + 42).toFixed(1) + '" x2="' + (5 + 230).toFixed(1) + '" y2="' + (5 + 42).toFixed(1) + '" stroke="#555" stroke-width="0.5" stroke-dasharray="2,3" opacity="0.4"/>';
-    }
-}
 
 // 获取单只股票的分时数据（股价）
 function fetchPriceTrend(code, ci, si) {
@@ -994,39 +919,8 @@ function fetchPriceTrend(code, ci, si) {
 }
 
 // 获取单只股票的主力净流入分时数据
-function fetchFlowTrend(code, ci, si) {
-    var secid = codeToSecid(code);
-    if (!secid) return;
-    var cbName = 'em_flow_' + ci + '_' + si + '_' + Date.now();
-    window[cbName] = function(resp) {
-        try {
-            if (resp && resp.data && resp.data.klines) {
-                var klines = resp.data.klines;
-                if (!minuteData[code]) minuteData[code] = {};
-                minuteData[code].klines = klines;
-                drawFlowChart(ci, si, klines);
-            }
-        } catch(e) {}
-        try { delete window[cbName]; } catch(e) {}
-    };
-    var sc = document.createElement('script');
-    sc.src = 'https://push2his.eastmoney.com/api/qt/stock/fflow/kline/get?secid=' + secid + '&klt=1&lmt=240&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62&cb=' + cbName;
-    sc.onload = function() { try { document.head.removeChild(sc); } catch(e) {} };
-    sc.onerror = function() { try { document.head.removeChild(sc); } catch(e) {} };
-    document.head.appendChild(sc);
-}
 
 // 批量获取所有股票的分时数据
-function fetchAllTrends() {
-    stockCategories.forEach(function(cat, ci) {
-        cat.stocks.forEach(function(stock, si) {
-            if (stock.code) {
-                fetchPriceTrend(stock.code, ci, si);
-                fetchFlowTrend(stock.code, ci, si);
-            }
-        });
-    });
-}
 
 // ========= 格式化主力净流入 =========
 function formatInflow(val) {
