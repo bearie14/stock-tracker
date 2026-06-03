@@ -934,15 +934,24 @@ function fetchPriceTrend(code, ci, si) {
     document.head.appendChild(sc);
 }
 
-// 批量获取所有股票的股价分时数据
+// 批量获取所有股票的股价分时数据（分批延迟，减少并发拦截）
 function fetchAllPriceTrends() {
+    var all = [];
     stockCategories.forEach(function(cat, ci) {
         cat.stocks.forEach(function(stock, si) {
-            if (stock.code) {
-                fetchPriceTrend(stock.code, ci, si);
-            }
+            if (stock.code) all.push({ code: stock.code, ci: ci, si: si });
         });
     });
+    var BATCH = 5, DELAY = 1000;
+    for (var i = 0; i < all.length; i += BATCH) {
+        (function(batch, idx) {
+            setTimeout(function() {
+                batch.forEach(function(item) {
+                    fetchPriceTrend(item.code, item.ci, item.si);
+                });
+            }, idx * DELAY);
+        })(all.slice(i, i + BATCH), i / BATCH);
+    }
 }
 
 // ========= 格式化主力净流入 =========
