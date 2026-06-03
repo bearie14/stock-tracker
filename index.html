@@ -924,7 +924,7 @@ function fetchPriceTrend(code, ci, si) {
     };
     var sc = document.createElement('script');
     sc.referrerPolicy = 'no-referrer';
-    sc.src = 'https://push2his.eastmoney.com/api/qt/stock/trends2/get?secid=' + secid + '&fields1=f1,f2,f3,f4,f5,f6,f7,f8&fields2=f51,f52,f53,f54,f55,f56,f57,f58&iscr=0&cb=' + cbName;
+    sc.src = 'https://push2.eastmoney.com/api/qt/stock/trends2/get?secid=' + secid + '&fields1=f1,f2,f3,f4,f5,f6,f7,f8&fields2=f51,f52,f53,f54,f55,f56,f57,f58&iscr=0&_=' + Date.now() + '&cb=' + cbName;
     sc.onload = function() { try { document.head.removeChild(sc); } catch(e) {} };
     sc.onerror = function() { try { document.head.removeChild(sc); } catch(e) {} };
     document.head.appendChild(sc);
@@ -1018,7 +1018,7 @@ function fetchCapitalInflow() {
             };
             var sc = document.createElement('script');
             sc.referrerPolicy = 'no-referrer';
-            sc.src = 'https://push2.eastmoney.com/api/qt/ulist.np/get?secids=' + batch.join(',') + '&fields=f12,f13,f62&cb=' + cbName;
+            sc.src = 'https://push2.eastmoney.com/api/qt/ulist.np/get?secids=' + batch.join(',') + '&fields=f12,f13,f62&_=' + Date.now() + '&cb=' + cbName;
             sc.onload = function() { try { document.head.removeChild(sc); } catch(e) {} };
             sc.onerror = function() { try { document.head.removeChild(sc); } catch(e) {} };
             document.head.appendChild(sc);
