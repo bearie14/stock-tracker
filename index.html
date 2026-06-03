@@ -870,7 +870,10 @@ function drawPriceChart(ci, si, trends) {
         points.push(x.toFixed(1) + ',' + y.toFixed(1));
     }
 
-    var isUp = closes.length > 0 && closes[closes.length - 1] >= firstOpen;
+    // 颜色基准用昨日收盘价（和涨幅保持一致）
+    var code = stockCategories[ci].stocks[si].code;
+    var prevClose = (stockData[code] && stockData[code].prevClose) ? stockData[code].prevClose : firstOpen;
+    var isUp = closes.length > 0 && closes[closes.length - 1] >= prevClose;
     var color = isUp ? '#ff4d4d' : '#00c853';
 
     // 渐变填充区域
@@ -881,7 +884,11 @@ function drawPriceChart(ci, si, trends) {
         '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.25"/>' +
         '<stop offset="100%" stop-color="' + color + '" stop-opacity="0.02"/></linearGradient></defs>';
 
-    svg.innerHTML = defs +
+    // 昨收水平基准线
+    var prevCloseY = 5 + (1 - (prevClose - minP) / range) * 42;
+    var baseLine = '<line x1="5" y1="' + prevCloseY.toFixed(1) + '" x2="' + (5 + 230).toFixed(1) + '" y2="' + prevCloseY.toFixed(1) + '" stroke="#667" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.5"/>';
+
+    svg.innerHTML = defs + baseLine +
         '<polygon points="' + fillPoints + '" fill="url(#' + fillId + ')" />' +
         '<polyline fill="none" stroke="' + color + '" stroke-width="1.2" stroke-linejoin="round" points="' + points.join(' ') + '"/>' +
         '<line x1="' + (5 + 230 * progress).toFixed(1) + '" y1="5" x2="' + (5 + 230 * progress).toFixed(1) + '" y2="' + (5 + 42).toFixed(1) + '" stroke="' + color + '" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.5"/>' +
