@@ -320,6 +320,7 @@
         }
         .stock-chart-single .mini-chart-wrap {
             width: 100%;
+            height: 52px;
         }
 
 
@@ -756,6 +757,7 @@ function fetchAllStockData() {
 
 function fetchBatch(codes) {
     var script = document.createElement('script');
+    script.referrerPolicy = 'no-referrer';
     script.src = 'https://qt.gtimg.cn/q=' + codes.join(',');
     script.onload = function() {
         codes.forEach(function(code) {
@@ -921,6 +923,7 @@ function fetchPriceTrend(code, ci, si) {
         try { delete window[cbName]; } catch(e) {}
     };
     var sc = document.createElement('script');
+    sc.referrerPolicy = 'no-referrer';
     sc.src = 'https://push2his.eastmoney.com/api/qt/stock/trends2/get?secid=' + secid + '&fields1=f1,f2,f3,f4,f5,f6,f7,f8&fields2=f51,f52,f53,f54,f55,f56,f57,f58&iscr=0&cb=' + cbName;
     sc.onload = function() { try { document.head.removeChild(sc); } catch(e) {} };
     sc.onerror = function() { try { document.head.removeChild(sc); } catch(e) {} };
@@ -1014,6 +1017,7 @@ function fetchCapitalInflow() {
                 try { delete window[cbName]; } catch(e) {}
             };
             var sc = document.createElement('script');
+            sc.referrerPolicy = 'no-referrer';
             sc.src = 'https://push2.eastmoney.com/api/qt/ulist.np/get?secids=' + batch.join(',') + '&fields=f12,f13,f62&cb=' + cbName;
             sc.onload = function() { try { document.head.removeChild(sc); } catch(e) {} };
             sc.onerror = function() { try { document.head.removeChild(sc); } catch(e) {} };
