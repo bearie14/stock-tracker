@@ -861,7 +861,10 @@ function drawPriceChart(ci, si, trends) {
 
     // 当前进度
     var progress = getTradingProgress();
-    var drawCount = Math.ceil(closes.length * progress);
+
+    // draw ALL available points (not limited by trading progress)
+    var drawCount = closes.length;
+    var showCount = Math.ceil(closes.length * progress);
 
     // 生成 polyline 点
     var points = [];
@@ -886,7 +889,7 @@ function drawPriceChart(ci, si, trends) {
         '<polygon points="' + fillPoints + '" fill="url(#' + fillId + ')" />' +
         '<polyline fill="none" stroke="' + color + '" stroke-width="1.2" stroke-linejoin="round" points="' + points.join(' ') + '"/>' +
         '<line x1="' + (5 + 230 * progress).toFixed(1) + '" y1="5" x2="' + (5 + 230 * progress).toFixed(1) + '" y2="' + (5 + 42).toFixed(1) + '" stroke="' + color + '" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.5"/>' +
-        (drawCount > 0 ? '<circle cx="' + points[points.length - 1].split(',')[0] + '" cy="' + points[points.length - 1].split(',')[1] + '" r="2" fill="' + color + '"/>' : '');
+        (showCount > 0 ? '<circle cx="' + (points[showCount - 1] || points[0] || '5,26').split(',')[0] + '" cy="' + (points[showCount - 1] || points[0] || '5,26').split(',')[1] + '" r="2" fill="' + color + '"/>' : '');
 
     // 虚线部分（未发生时间）
     if (progress < 1) {
