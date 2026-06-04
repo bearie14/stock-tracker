@@ -2115,7 +2115,7 @@ function fetchAllTrends() {
     for (var i = 0; i < all.length; i++) {
         (function(item, idx) {
             setTimeout(function() {
-                (idx % 2 === 0 ? fetchPriceTrendTencent : fetchPriceTrendEastmoney)(item.code, item.ci, item.si);
+                fetchPriceTrendTencent(item.code, item.ci, item.si);
                 fetchFlowTrend(item.code, item.ci, item.si);
             }, idx * 100);
         })(all[i], i);
