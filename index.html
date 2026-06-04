@@ -1563,17 +1563,80 @@ var totalBatches  = 0;
 
 
 function checkLoadingDone() {
-
     loadedBatches++;
-
     if (loadedBatches >= totalBatches) {
-
         var el = document.getElementById('loadingOverlay');
-
         if (el) el.classList.add('hidden');
+        sortCategories();
+    }
+}
 
+// 按平均涨幅排序板块 + FLIP 动画
+var sortTimer = null;
+function sortCategories() {
+    if (sortTimer) return;
+    sortTimer = setTimeout(function() { sortTimer = null; }, 500);
+    var container = document.getElementById('stockContainer');
+    if (!container) return;
+    var cats = container.querySelectorAll('.category');
+    if (cats.length === 0) return;
+
+    // 计算每个板块的平均涨幅
+    var scores = [];
+    stockCategories.forEach(function(cat, ci) {
+        var sum = 0, count = 0;
+        cat.stocks.forEach(function(stock) {
+            if (stock.code && stockData[stock.code]) {
+                sum += stockData[stock.code].pct || 0;
+                count++;
+            }
+        });
+        var avg = count > 0 ? sum / count : 0;
+        scores.push({ ci: ci, avg: avg });
+    });
+
+    // 按平均涨幅降序排
+    scores.sort(function(a, b) { return b.avg - a.avg; });
+
+    // 更新板块标题中的统计信息
+    scores.forEach(function(item, rank) {
+        var statsEl = document.getElementById('stats-' + item.ci);
+        if (statsEl) {
+            var color = item.avg >= 0 ? '#ff4d4d' : '#00c853';
+            statsEl.innerHTML = '<span style=\"color:' + color + '; font-size: 0.85em;\">' +
+                (item.avg >= 0 ? '+' : '') + item.avg.toFixed(2) + '%</span>';
+        }
+    });
+
+    // FLIP 动画
+    var first = [];
+    for (var i = 0; i < cats.length; i++) {
+        first.push(cats[i].getBoundingClientRect().top);
     }
 
+    // 按排好序的顺序重新排列 DOM
+    scores.forEach(function(item) {
+        var catEl = document.getElementById('grid-' + item.ci);
+        if (catEl) {
+            container.appendChild(catEl.parentNode);
+        }
+    });
+
+    // Invert + Play
+    for (var i = 0; i < cats.length; i++) {
+        var last = cats[i].getBoundingClientRect().top;
+        var delta = first[i] - last;
+        if (Math.abs(delta) > 0.5) {
+            cats[i].style.transform = 'translateY(' + delta + 'px)';
+            cats[i].style.transition = 'none';
+            requestAnimationFrame(function(el, d) {
+                return function() {
+                    el.style.transition = '';
+                    el.style.transform = '';
+                };
+            }(cats[i], delta));
+        }
+    }
 }
 
 
