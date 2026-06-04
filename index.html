@@ -399,7 +399,13 @@
             gap: 6px;
 
         }
-
+        .category-desc {
+            font-size: 0.75em;
+            color: #8892b0;
+            margin-bottom: 12px;
+            padding-left: 14px;
+            line-height: 1.5;
+        }
         .category-stats {
 
             font-size: 0.72em;
@@ -904,7 +910,7 @@
 
 const stockCategories = [
 
-    { name: "AIPC", stocks: [
+    { name: "AIPC", desc: "AI PC元年开启，下游换机潮叠加AI硬件升级，终端制造链全面受益", stocks: [
 
         { name:"华勤技术", code:"sh603296" },
 
@@ -916,7 +922,7 @@ const stockCategories = [
 
     ]},
 
-    { name: "CPO", stocks: [
+    { name: "CPO", desc: "光模块是AI算力的高速公路，800G/1.6T高速模块供不应求，龙头业绩暴增", stocks: [
 
         { name:"中际旭创", code:"sz300308" },
 
@@ -928,7 +934,7 @@ const stockCategories = [
 
     ]},
 
-    { name: "OCS", stocks: [
+    { name: "OCS", desc: "光交换是下一代数据中心互联核心，替代传统电交换，降本增效关键环节", stocks: [
 
         { name:"腾景科技", code:"sh688195" },
 
@@ -940,7 +946,7 @@ const stockCategories = [
 
     ]},
 
-    { name: "光芯片", stocks: [
+    { name: "光芯片", desc: "光通信的心脏，国产替代突破期，龙头企业切入全球高端供应链", stocks: [
 
         { name:"源杰科技", code:"sh688498" },
 
@@ -952,7 +958,7 @@ const stockCategories = [
 
     ]},
 
-    { name: "PCB", stocks: [
+    { name: "PCB", desc: "AI服务器用板量是普通服务器5-8倍，高端产能供不应求，涨价潮已开启", stocks: [
 
         { name:"胜宏科技", code:"sz300476" },
 
@@ -964,7 +970,7 @@ const stockCategories = [
 
     ]},
 
-    { name: "AI服务器", stocks: [
+    { name: "AI服务器", desc: "算力基建核心战场，全球AI投资主赛道，出货量暴增带动全产业链", stocks: [
 
         { name:"工业富联", code:"sh601138" },
 
@@ -976,7 +982,7 @@ const stockCategories = [
 
     ]},
 
-    { name: "AI芯片", stocks: [
+    { name: "AI芯片", desc: "国产算力自主可控迫在眉睫，海光寒武纪引领替代浪潮，万亿市场起步", stocks: [
 
         { name:"海光信息", code:"sh688041" },
 
@@ -988,7 +994,7 @@ const stockCategories = [
 
     ]},
 
-    { name: "光纤光缆", stocks: [
+    { name: "光纤光缆", desc: "算力网络物理底座，数据中心互联+FTTR需求驱动，行业持续高景气", stocks: [
 
         { name:"长飞光纤", code:"sh601869" },
 
@@ -1000,7 +1006,7 @@ const stockCategories = [
 
     ]},
 
-    { name: "存储芯片", stocks: [
+    { name: "存储芯片", desc: "AI训练推动存储需求爆发，HBM高带宽内存成算力瓶颈，国产替代空间超千亿", stocks: [
 
         { name:"德明利",   code:"sz001309" },
 
@@ -1012,7 +1018,7 @@ const stockCategories = [
 
     ]},
 
-    { name: "光模块设备", stocks: [
+    { name: "光模块设备", desc: "光模块产业链上游，封装检测设备受益全球光模块扩产潮，高壁垒国产突围", stocks: [
 
         { name:"罗博特科", code:"sz300757" },
 
@@ -1318,7 +1324,7 @@ function renderStructure() {
 
         catDiv.className = 'category';
 
-        catDiv.innerHTML = '<div class="category-title"><span>' + cat.name + '</span><span class="category-stats" id="stats-' + ci + '"></span></div><div class="stock-grid" id="grid-' + ci + '"></div>';
+        catDiv.innerHTML = '<div class="category-title"><span>' + cat.name + '</span><span class="category-stats" id="stats-' + ci + '"></span></div>' + (cat.desc ? '<div class="category-desc">' + cat.desc + '</div>' : '') + '<div class="stock-grid" id="grid-' + ci + '"></div>';
 
         container.appendChild(catDiv);
 
