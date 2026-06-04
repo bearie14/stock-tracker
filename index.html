@@ -828,19 +828,19 @@ function drawPriceChart(ci, si, trends) {
     var svg = wrap.querySelector('svg');
     if (!svg) return;
 
-    // trends: 数组，每条记录 "时间,开盘,最高,最低,收盘,成交量,成交额,均价"
+    // klines: 每条记录 "日期,开盘,收盘,最高,最低,成交量,成交额,振幅,涨跌幅,涨跌额,换手率"
     if (!trends || trends.length === 0) {
         svg.innerHTML = '<text x="50%" y="50%" fill="#555" font-size="9" text-anchor="middle">暂无数据</text>';
         return;
     }
 
-    // 解析收盘价数组
+    // 解析收盘价数组（kline格式：索引2为收盘价）
     var closes = [];
     var firstOpen = null;
     for (var i = 0; i < trends.length; i++) {
         var parts = trends[i].split(',');
-        if (parts.length >= 5) {
-            var close = parseFloat(parts[4]);
+        if (parts.length >= 3) {
+            var close = parseFloat(parts[2]);
             if (!isNaN(close)) {
                 closes.push(close);
                 if (firstOpen === null) firstOpen = parseFloat(parts[1]);
@@ -871,7 +871,9 @@ function drawPriceChart(ci, si, trends) {
         points.push(x.toFixed(1) + ',' + y.toFixed(1));
     }
 
-    var isUp = closes.length > 0 && closes[closes.length - 1] >= firstOpen;
+    var code = stockCategories[ci].stocks[si].code;
+    var prevClose = (stockData[code] && stockData[code].prevClose) ? stockData[code].prevClose : firstOpen;
+    var isUp = closes.length > 0 && closes[closes.length - 1] >= prevClose;
     var color = isUp ? '#ff4d4d' : '#00c853';
 
     // 渐变填充区域
@@ -977,17 +979,21 @@ function fetchPriceTrend(code, ci, si) {
     var cbName = 'em_trend_' + ci + '_' + si + '_' + Date.now();
     window[cbName] = function(resp) {
         try {
-            if (resp && resp.data && resp.data.trends) {
-                var trends = resp.data.trends;
+            if (resp && resp.data && resp.data.klines) {
+                var trends = resp.data.klines;
                 if (!minuteData[code]) minuteData[code] = {};
                 minuteData[code].trends = trends;
+                if (resp.data.preKPrice && stockData[code]) {
+                    stockData[code].prevClose = resp.data.preKPrice;
+                }
                 drawPriceChart(ci, si, trends);
             }
         } catch(e) {}
         try { delete window[cbName]; } catch(e) {}
     };
     var sc = document.createElement('script');
-    sc.src = 'https://push2his.eastmoney.com/api/qt/stock/trends2/get?secid=' + secid + '&fields1=f1,f2,f3,f4,f5,f6,f7,f8&fields2=f51,f52,f53,f54,f55,f56,f57,f58&iscr=0&cb=' + cbName;
+    sc.referrerPolicy = 'no-referrer';
+    sc.src = 'https://push2.eastmoney.com/api/qt/stock/kline/get?secid=' + secid + '&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=1&fqt=1&beg=0&end=20500101&ut=fa5fd1943c7b386f172d6893dbfba10b&_=' + Date.now() + '&cb=' + cbName;
     sc.onload = function() { try { document.head.removeChild(sc); } catch(e) {} };
     sc.onerror = function() { try { document.head.removeChild(sc); } catch(e) {} };
     document.head.appendChild(sc);
@@ -1010,7 +1016,8 @@ function fetchFlowTrend(code, ci, si) {
         try { delete window[cbName]; } catch(e) {}
     };
     var sc = document.createElement('script');
-    sc.src = 'https://push2his.eastmoney.com/api/qt/stock/fflow/kline/get?secid=' + secid + '&klt=1&lmt=240&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62&cb=' + cbName;
+    sc.referrerPolicy = 'no-referrer';
+    sc.src = 'https://push2.eastmoney.com/api/qt/stock/fflow/kline/get?secid=' + secid + '&klt=1&lmt=240&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62&ut=fa5fd1943c7b386f172d6893dbfba10b&_=' + Date.now() + '&cb=' + cbName;
     sc.onload = function() { try { document.head.removeChild(sc); } catch(e) {} };
     sc.onerror = function() { try { document.head.removeChild(sc); } catch(e) {} };
     document.head.appendChild(sc);
