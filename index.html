@@ -993,7 +993,6 @@ function fetchPriceTrend(code, ci, si) {
     document.head.appendChild(sc);
 }
 
-
 // 批量获取所有股票的股价分时数据（分批延迟，减少并发拦截）
 function fetchAllPriceTrends() {
     var all = [];
@@ -1014,6 +1013,7 @@ function fetchAllPriceTrends() {
     }
 }
 
+// 获取单只股票的主力净流入分时数据
 function fetchFlowTrend(code, ci, si) {
     var secid = codeToSecid(code);
     if (!secid) return;
