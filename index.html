@@ -292,7 +292,14 @@
         .capital-inflow .val.out { color: #00c853; }
         .capital-inflow .val.flat { color: #8892b0; }
 
-
+        /* ===== 分时图区域 ===== */
+        .stock-charts {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
         .mini-chart-wrap {
             flex: 1;
             height: 52px;
@@ -313,16 +320,6 @@
             height: 100%;
             display: block;
         }
-        .stock-chart-single {
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid rgba(255,255,255,0.05);
-        }
-        .stock-chart-single .mini-chart-wrap {
-            width: 100%;
-            height: 52px;
-        }
-
 
         /* ===== 加载遮罩 ===== */
         .loading-overlay {
@@ -703,8 +700,13 @@ function renderStructure() {
                         '<span>今开: <span class="open-price">--</span></span>' +
                         '<span>最高: <span class="high-price">--</span></span>' +
                     '</div>' +
-                    '<div class="stock-chart-single">' +
-                            '<span class="chart-label">股价分时</span>' +
+                    '<div class="stock-charts">' +
+                        '<div class="mini-chart-wrap" id="price-chart-' + ci + '-' + si + '">' +
+                            '<span class="chart-label">股价</span>' +
+                            '<svg viewBox="0 0 240 52" preserveAspectRatio="none"></svg>' +
+                        '</div>' +
+                        '<div class="mini-chart-wrap" id="flow-chart-' + ci + '-' + si + '">' +
+                            '<span class="chart-label">净流入</span>' +
                             '<svg viewBox="0 0 240 52" preserveAspectRatio="none"></svg>' +
                         '</div>' +
                     '</div>' +
@@ -750,12 +752,12 @@ function fetchAllStockData() {
               now.getSeconds().toString().padStart(2,'0');
     document.getElementById('lastUpdate').textContent = ts;
     fetchCapitalInflow();
-    // 获取股价分时数据
+    // 获取分时数据
+    fetchAllTrends();
 }
 
 function fetchBatch(codes) {
     var script = document.createElement('script');
-    script.referrerPolicy = 'no-referrer';
     script.src = 'https://qt.gtimg.cn/q=' + codes.join(',');
     script.onload = function() {
         codes.forEach(function(code) {
@@ -789,43 +791,264 @@ function checkLoadingDone() {
 // ========== 解析单只股票 ==========
 // ========= 分时图相关 =========
 // 存储每只股票的分时数据
+var minuteData = {};
 
-// 计算当前时间占全天交易时间的比例 (9:30-11:30 + 13:00-15:00 = 330分钟)
+// 计算当前时间占全天交易时间的比例 (9:30-15:00 = 330分钟)
 function getTradingProgress() {
     var now = new Date();
     var h = now.getHours();
     var m = now.getMinutes();
-
-    // 非交易时间
-    if (h < 9 || (h === 9 && m < 30)) return 0;   // 未开盘
-    if (h >= 15) return 1;                                      // 收盘后
-
-    // 午休时间 11:30-13:00
-    if ((h === 11 && m >= 30) || h === 12) {
-        return 120 / 330;  // 上午120分钟 / 全天330分钟
+    // 非交易时间返回1（画满）
+    if (h < 9 || (h === 9 && m < 30)) return 0;
+    if (h > 15 || (h === 11 && m > 30) || (h === 12)) {
+        // 午休 11:30-13:00 跳过
+        if (h === 11 && m > 30) {
+            return (120 + 120) / 330;  // 上午 120 分钟 + 午休
+        }
+        if (h >= 13 && h < 15) {
+            return (120 + (h - 13) * 60 + m) / 330;
+        }
+        return 1;
     }
-
-    // 上午交易时间 9:30-11:30
-    if (h < 13) {
-        var mins = (h - 9) * 60 + m - 30;
-        if (mins < 0) mins = 0;
-        if (mins > 120) mins = 120;
-        return mins / 330;
+    // 上午交易时间 9:30-11:30 = 120分钟
+    var mins = (h - 9) * 60 + m - 30;
+    if (mins < 0) mins = 0;
+    if (mins > 120) mins = 120;
+    // 下午交易时间 13:00-15:00 = 120分钟
+    if (h >= 13 && h < 15) {
+        mins = 120 + (h - 13) * 60 + m;
     }
-
-    // 下午交易时间 13:00-15:00
-    var mins = 120 + (h - 13) * 60 + m;
-    if (mins > 330) mins = 330;
-    return mins / 330;
+    return Math.min(mins / 330, 1);
 }
 
 // 绘制单只股票的分时图（股价）
+function drawPriceChart(ci, si, trends) {
+    var wrap = document.getElementById('price-chart-' + ci + '-' + si);
+    if (!wrap) return;
+    var svg = wrap.querySelector('svg');
+    if (!svg) return;
+
+    // trends: 数组，每条记录 "时间,开盘,最高,最低,收盘,成交量,成交额,均价"
+    if (!trends || trends.length === 0) {
+        svg.innerHTML = '<text x="50%" y="50%" fill="#555" font-size="9" text-anchor="middle">暂无数据</text>';
+        return;
+    }
+
+    // 解析收盘价数组
+    var closes = [];
+    var firstOpen = null;
+    for (var i = 0; i < trends.length; i++) {
+        var parts = trends[i].split(',');
+        if (parts.length >= 5) {
+            var close = parseFloat(parts[4]);
+            if (!isNaN(close)) {
+                closes.push(close);
+                if (firstOpen === null) firstOpen = parseFloat(parts[1]);
+            }
+        }
+    }
+    if (closes.length === 0) return;
+
+    var minP = Math.min.apply(null, closes);
+    var maxP = Math.max.apply(null, closes);
+    var range = maxP - minP;
+    if (range < 0.01) range = 0.01;
+    // 上下留 5% 边距
+    var pad = range * 0.05;
+    minP -= pad;
+    maxP += pad;
+    range = maxP - minP;
+
+    // 当前进度
+    var progress = getTradingProgress();
+    var drawCount = Math.ceil(closes.length * progress);
+
+    // 生成 polyline 点
+    var points = [];
+    for (var j = 0; j < drawCount; j++) {
+        var x = (j / (closes.length - 1 || 1)) * 230 + 5;
+        var y = 5 + (1 - (closes[j] - minP) / range) * 42;
+        points.push(x.toFixed(1) + ',' + y.toFixed(1));
+    }
+
+    var isUp = closes.length > 0 && closes[closes.length - 1] >= firstOpen;
+    var color = isUp ? '#ff4d4d' : '#00c853';
+
+    // 渐变填充区域
+    var fillPoints = points.join(' ') + ' ' + (5 + 230).toFixed(1) + ',' + (5 + 42).toFixed(1) + ' ' + '5,' + (5 + 42).toFixed(1);
+
+    var fillId = 'pf' + ci + '_' + si;
+    var defs = '<defs><linearGradient id="' + fillId + '" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.25"/>' +
+        '<stop offset="100%" stop-color="' + color + '" stop-opacity="0.02"/></linearGradient></defs>';
+
+    svg.innerHTML = defs +
+        '<polygon points="' + fillPoints + '" fill="url(#' + fillId + ')" />' +
+        '<polyline fill="none" stroke="' + color + '" stroke-width="1.2" stroke-linejoin="round" points="' + points.join(' ') + '"/>' +
+        '<line x1="' + (5 + 230 * progress).toFixed(1) + '" y1="5" x2="' + (5 + 230 * progress).toFixed(1) + '" y2="' + (5 + 42).toFixed(1) + '" stroke="' + color + '" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.5"/>' +
+        (drawCount > 0 ? '<circle cx="' + points[points.length - 1].split(',')[0] + '" cy="' + points[points.length - 1].split(',')[1] + '" r="2" fill="' + color + '"/>' : '');
+
+    // 虚线部分（未发生时间）
+    if (progress < 1) {
+        var dashStart = 5 + 230 * progress;
+        svg.innerHTML += '<line x1="' + dashStart + '" y1="5" x2="' + (5 + 230).toFixed(1) + '" y2="5" stroke="#555" stroke-width="0.5" stroke-dasharray="2,3" opacity="0.4"/>' +
+            '<line x1="' + dashStart + '" y1="' + (5 + 42).toFixed(1) + '" x2="' + (5 + 230).toFixed(1) + '" y2="' + (5 + 42).toFixed(1) + '" stroke="#555" stroke-width="0.5" stroke-dasharray="2,3" opacity="0.4"/>';
+    }
+}
 
 // 绘制主力净流入分时图
+function drawFlowChart(ci, si, klines) {
+    var wrap = document.getElementById('flow-chart-' + ci + '-' + si);
+    if (!wrap) return;
+    var svg = wrap.querySelector('svg');
+    if (!svg) return;
+
+    if (!klines || klines.length === 0) {
+        svg.innerHTML = '<text x="50%" y="50%" fill="#555" font-size="9" text-anchor="middle">暂无数据</text>';
+        return;
+    }
+
+    // klines 每条记录: "时间,f52(主力净流入万元?),f53,...,f62"
+    // 根据之前测试，f52 是主力净流入（元）
+    var values = [];
+    for (var i = 0; i < klines.length; i++) {
+        var parts = klines[i].split(',');
+        if (parts.length >= 2) {
+            var val = parseFloat(parts[1]);  // f52 = 主力净流入（元）
+            if (!isNaN(val)) values.push(val);
+        }
+    }
+    if (values.length === 0) {
+        svg.innerHTML = '<text x="50%" y="50%" fill="#555" font-size="9" text-anchor="middle">暂无数据</text>';
+        return;
+    }
+
+    var minV = Math.min.apply(null, values);
+    var maxV = Math.max.apply(null, values);
+    // 以0为中线
+    var absMax = Math.max(Math.abs(minV), Math.abs(maxV)) || 1;
+    minV = -absMax;
+    maxV = absMax;
+    var range = maxV - minV;
+    if (range < 0.01) range = 0.01;
+
+    var progress = getTradingProgress();
+    var drawCount = Math.ceil(values.length * progress);
+
+    var points = [];
+    for (var j = 0; j < drawCount; j++) {
+        var x = (j / (values.length - 1 || 1)) * 230 + 5;
+        var y = 5 + (1 - (values[j] - minV) / range) * 42;
+        points.push(x.toFixed(1) + ',' + y.toFixed(1));
+    }
+
+    // 判断整体净流入正负
+    var sumVal = 0;
+    for (var k = 0; k < values.length; k++) sumVal += values[k];
+    var color = sumVal >= 0 ? '#ff4d4d' : '#00c853';
+
+    var fillId = 'ff' + ci + '_' + si;
+    var defs = '<defs><linearGradient id="' + fillId + '" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.25"/>' +
+        '<stop offset="100%" stop-color="' + color + '" stop-opacity="0.02"/></linearGradient></defs>';
+
+    // 零线
+    var zeroY = 5 + (0 - minV) / range * 42;
+    var lines = '<line x1="5" y1="' + zeroY.toFixed(1) + '" x2="' + (5 + 230).toFixed(1) + '" y2="' + zeroY.toFixed(1) + '" stroke="#444" stroke-width="0.5" opacity="0.5"/>';
+
+    var fillPoints = points.join(' ') + ' ' + (5 + 230).toFixed(1) + ',' + zeroY.toFixed(1) + ' ' + '5,' + zeroY.toFixed(1);
+
+    svg.innerHTML = defs + lines +
+        '<polygon points="' + fillPoints + '" fill="url(#' + fillId + ')" />' +
+        '<polyline fill="none" stroke="' + color + '" stroke-width="1.2" stroke-linejoin="round" points="' + points.join(' ') + '"/>' +
+        (drawCount > 0 ? '<circle cx="' + points[points.length - 1].split(',')[0] + '" cy="' + points[points.length - 1].split(',')[1] + '" r="2" fill="' + color + '"/>' : '');
+
+    if (progress < 1) {
+        var dashStart = 5 + 230 * progress;
+        svg.innerHTML += '<line x1="' + dashStart + '" y1="5" x2="' + (5 + 230).toFixed(1) + '" y2="5" stroke="#555" stroke-width="0.5" stroke-dasharray="2,3" opacity="0.4"/>' +
+            '<line x1="' + dashStart + '" y1="' + (5 + 42).toFixed(1) + '" x2="' + (5 + 230).toFixed(1) + '" y2="' + (5 + 42).toFixed(1) + '" stroke="#555" stroke-width="0.5" stroke-dasharray="2,3" opacity="0.4"/>';
+    }
+}
 
 // 获取单只股票的分时数据（股价）
+function fetchPriceTrend(code, ci, si) {
+    var secid = codeToSecid(code);
+    if (!secid) return;
+    var cbName = 'em_trend_' + ci + '_' + si + '_' + Date.now();
+    window[cbName] = function(resp) {
+        try {
+            if (resp && resp.data && resp.data.trends) {
+                var trends = resp.data.trends;
+                if (!minuteData[code]) minuteData[code] = {};
+                minuteData[code].trends = trends;
+                drawPriceChart(ci, si, trends);
+            }
+        } catch(e) {}
+        try { delete window[cbName]; } catch(e) {}
+    };
+    var sc = document.createElement('script');
+    sc.src = 'https://push2his.eastmoney.com/api/qt/stock/trends2/get?secid=' + secid + '&fields1=f1,f2,f3,f4,f5,f6,f7,f8&fields2=f51,f52,f53,f54,f55,f56,f57,f58&iscr=0&cb=' + cbName;
+    sc.onload = function() { try { document.head.removeChild(sc); } catch(e) {} };
+    sc.onerror = function() { try { document.head.removeChild(sc); } catch(e) {} };
+    document.head.appendChild(sc);
+}
+
+// 获取单只股票的主力净流入分时数据
+}
 
 // 批量获取所有股票的股价分时数据（分批延迟，减少并发拦截）
+function fetchAllPriceTrends() {
+    var all = [];
+    stockCategories.forEach(function(cat, ci) {
+        cat.stocks.forEach(function(stock, si) {
+            if (stock.code) all.push({ code: stock.code, ci: ci, si: si });
+        });
+    });
+    var BATCH = 5, DELAY = 1000;
+    for (var i = 0; i < all.length; i += BATCH) {
+        (function(batch, idx) {
+            setTimeout(function() {
+                batch.forEach(function(item) {
+                    fetchPriceTrend(item.code, item.ci, item.si);
+                });
+            }, idx * DELAY);
+        })(all.slice(i, i + BATCH), i / BATCH);
+    }
+}
+
+function fetchFlowTrend(code, ci, si) {
+    var secid = codeToSecid(code);
+    if (!secid) return;
+    var cbName = 'em_flow_' + ci + '_' + si + '_' + Date.now();
+    window[cbName] = function(resp) {
+        try {
+            if (resp && resp.data && resp.data.klines) {
+                var klines = resp.data.klines;
+                if (!minuteData[code]) minuteData[code] = {};
+                minuteData[code].klines = klines;
+                drawFlowChart(ci, si, klines);
+            }
+        } catch(e) {}
+        try { delete window[cbName]; } catch(e) {}
+    };
+    var sc = document.createElement('script');
+    sc.src = 'https://push2his.eastmoney.com/api/qt/stock/fflow/kline/get?secid=' + secid + '&klt=1&lmt=240&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62&cb=' + cbName;
+    sc.onload = function() { try { document.head.removeChild(sc); } catch(e) {} };
+    sc.onerror = function() { try { document.head.removeChild(sc); } catch(e) {} };
+    document.head.appendChild(sc);
+}
+
+// 批量获取所有股票的分时数据
+function fetchAllTrends() {
+    stockCategories.forEach(function(cat, ci) {
+        cat.stocks.forEach(function(stock, si) {
+            if (stock.code) {
+                fetchPriceTrend(stock.code, ci, si);
+                fetchFlowTrend(stock.code, ci, si);
+            }
+        });
+    });
+}
 
 // ========= 格式化主力净流入 =========
 function formatInflow(val) {
@@ -903,8 +1126,7 @@ function fetchCapitalInflow() {
                 try { delete window[cbName]; } catch(e) {}
             };
             var sc = document.createElement('script');
-            sc.referrerPolicy = 'no-referrer';
-            sc.src = 'https://push2.eastmoney.com/api/qt/ulist.np/get?secids=' + batch.join(',') + '&fields=f12,f13,f62&_=' + Date.now() + '&cb=' + cbName;
+            sc.src = 'https://push2.eastmoney.com/api/qt/ulist.np/get?secids=' + batch.join(',') + '&fields=f12,f13,f62&cb=' + cbName;
             sc.onload = function() { try { document.head.removeChild(sc); } catch(e) {} };
             sc.onerror = function() { try { document.head.removeChild(sc); } catch(e) {} };
             document.head.appendChild(sc);
@@ -947,7 +1169,6 @@ function processStock(code, dataStr) {
         code: code,
         price: price,
         close: close,
-        prevClose: close,
         open: open,
         high: high,
         change: change,
@@ -1100,6 +1321,7 @@ function init() {
 
     fetchAllStockData();
     refreshInterval = setInterval(fetchAllStockData, 8000);
+    fetchAllPriceTrends();
 }
 
 document.addEventListener('DOMContentLoaded', init);
