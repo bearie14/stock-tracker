@@ -1342,6 +1342,8 @@ function updateDisplay(code, info) {
 
             var sn = card.querySelector('.stock-name');
             if (sn && info.name) sn.childNodes[0].textContent = info.name;
+
+            var pe = card.querySelector('.stock-price');
             if (pe) pe.textContent = info.price.toFixed(2);
 
             var cp = card.querySelector('.change-percent');
