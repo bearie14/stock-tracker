@@ -173,6 +173,45 @@
         .summary-value.neutral { color: #e0e0e0; }
 
         /* ===== 分类板块 ===== */
+        .custom-watchlist {
+            background: rgba(0,200,100,0.03);
+            border: 1px solid rgba(0,200,100,0.15);
+        }
+        .custom-input-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(0,200,100,0.08);
+        }
+        .custom-input {
+            flex: 1; height: 30px; padding: 0 10px;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.04);
+            color: #fff; font-size: 12px;
+            font-family: 'Courier New', monospace;
+            outline: none;
+        }
+        .custom-input:focus { border-color: rgba(0,200,100,0.4); }
+        .custom-input::placeholder { color: #555; }
+        .custom-btn {
+            height: 30px; padding: 0 12px;
+            border: 1px solid rgba(0,200,100,0.2);
+            border-radius: 6px;
+            background: rgba(0,200,100,0.08);
+            color: #4cdf8b; font-size: 12px; cursor: pointer;
+            white-space: nowrap;
+        }
+        .custom-btn.dim {
+            border-color: rgba(255,255,255,0.06);
+            color: #667; background: rgba(255,255,255,0.02);
+        }
+        .custom-btn:hover { opacity: 0.8; }
+        .custom-empty {
+            text-align: center; padding: 16px 0;
+            color: #555; font-size: 12px;
+        }
         .category {
             margin-bottom: 22px;
             background: rgba(255,255,255,0.025);
@@ -656,6 +695,16 @@ function renderStructure() {
     var container = document.getElementById('stockContainer');
     container.innerHTML = '';
 
+    // 自选板块的输入UI（渲染在自选category之前）
+    if (stockCategories.length > 0 && stockCategories[0].name === '自选') {
+        var inputDiv = document.createElement('div');
+        inputDiv.style.cssText = 'margin:10px 20px 0; display:flex; gap:6px;';
+        inputDiv.innerHTML = '<input class="custom-input" id="customInput" placeholder="输入代码，如 sh603296" maxlength="9" />' +
+            '<button class="custom-btn" id="customAddBtn">添加</button>' +
+            '<button class="custom-btn dim" id="customClearBtn">清空</button>';
+        container.appendChild(inputDiv);
+    }
+
     stockCategories.forEach(function(cat, ci) {
         var catDiv = document.createElement('div');
         catDiv.className = 'category';
@@ -752,8 +801,17 @@ function fetchAllStockData() {
               now.getSeconds().toString().padStart(2,'0');
     document.getElementById('lastUpdate').textContent = ts;
     fetchCapitalInflow();
-    // 获取分时数据
     fetchAllTrends();
+
+    // 自选按钮事件
+    var ci = document.getElementById('customInput');
+    var cb = document.getElementById('customAddBtn');
+    var cl = document.getElementById('customClearBtn');
+    if (ci && cb && cl) {
+        cb.onclick = function() { addCustomStock(ci.value); };
+        cl.onclick = clearCustomStocks;
+        ci.onkeydown = function(e) { if (e.key === 'Enter') addCustomStock(ci.value); };
+    }
 }
 
 function fetchBatch(codes) {
@@ -1277,7 +1335,48 @@ function manualRefresh() {
 }
 
 // ========== 启动 ==========
+// ========== 自选股票 ==========
+function loadCustomStocks() {
+    try { return JSON.parse(localStorage.getItem('customStocks') || '[]'); }
+    catch(e) { return []; }
+}
+function saveCustomStocks(codes) {
+    localStorage.setItem('customStocks', JSON.stringify(codes));
+}
+function addCustomStock(code) {
+    code = String(code).trim().toLowerCase();
+    if (!code || !/^(sh|sz|bj)\d{6}$/.test(code)) { alert('代码格式有误，如：sh603296'); return; }
+    var codes = loadCustomStocks();
+    if (codes.indexOf(code) >= 0) { alert('已存在'); return; }
+    codes.push(code);
+    saveCustomStocks(codes);
+    location.reload();
+}
+function removeCustomStock(code) {
+    var codes = loadCustomStocks().filter(function(c) { return c !== code; });
+    saveCustomStocks(codes);
+    location.reload();
+}
+function clearCustomStocks() {
+    if (!confirm('确定清空所有自选？')) return;
+    saveCustomStocks([]);
+    location.reload();
+}
+
 function init() {
+    // 加载自选股票
+    var customCodes = loadCustomStocks();
+    if (customCodes.length > 0) {
+        var customStocks = [];
+        customCodes.forEach(function(code) {
+            customStocks.push({ name: code.substring(2), code: code });
+        });
+        // 移除旧的自选板块（如果存在）
+        for (var i = stockCategories.length - 1; i >= 0; i--) {
+            if (stockCategories[i].name === '自选') stockCategories.splice(i, 1);
+        }
+        stockCategories.unshift({ name: '自选', stocks: customStocks });
+    }
     renderStructure();
     buildSecidMap();
 
