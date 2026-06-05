@@ -843,6 +843,68 @@ function checkLoadingDone() {
     if (loadedBatches >= totalBatches) {
         var el = document.getElementById('loadingOverlay');
         if (el) el.classList.add('hidden');
+        sortCategories();
+    }
+}
+
+var sortTimer = null;
+function sortCategories() {
+    if (sortTimer) return;
+    sortTimer = setTimeout(function() { sortTimer = null; }, 500);
+    var container = document.getElementById('stockContainer');
+    if (!container) return;
+    var cats = container.querySelectorAll('.category');
+    if (cats.length === 0) return;
+
+    // 计算每个板块平均涨幅（跳过后渲染的input div）
+    var scores = [];
+    stockCategories.forEach(function(cat, ci) {
+        var sum = 0, count = 0;
+        cat.stocks.forEach(function(stock) {
+            if (stock.code && stockData[stock.code]) {
+                sum += stockData[stock.code].pct || 0;
+                count++;
+            }
+        });
+        scores.push({ ci: ci, avg: count > 0 ? sum / count : 0, name: cat.name });
+    });
+
+    // 排序：自选永远第一，其余按平均涨幅降序
+    scores.sort(function(a, b) {
+        if (a.name === '自选') return -1;
+        if (b.name === '自选') return 1;
+        return b.avg - a.avg;
+    });
+
+    // 更新板块标题中的涨跌统计
+    scores.forEach(function(item) {
+        var statsEl = document.getElementById('stats-' + item.ci);
+        if (statsEl) {
+            var color = item.avg >= 0 ? '#ff4d4d' : '#00c853';
+            statsEl.innerHTML = '<span style=\"color:' + color + '; font-size:0.85em\">'
+                + (item.avg >= 0 ? '+' : '') + item.avg.toFixed(2) + '%</span>';
+        }
+    });
+
+    // FLIP 动画重排
+    var first = [];
+    for (var i = 0; i < cats.length; i++) first.push(cats[i].getBoundingClientRect().top);
+
+    scores.forEach(function(item) {
+        var el = document.getElementById('grid-' + item.ci);
+        if (el) container.appendChild(el.parentNode);
+    });
+
+    for (var i = 0; i < cats.length; i++) {
+        var last = cats[i].getBoundingClientRect().top;
+        var delta = first[i] - last;
+        if (Math.abs(delta) > 0.5) {
+            cats[i].style.transform = 'translateY(' + delta + 'px)';
+            cats[i].style.transition = 'none';
+            requestAnimationFrame(function(el) { return function() {
+                el.style.transition = ''; el.style.transform = '';
+            }; }(cats[i]));
+        }
     }
 }
 
