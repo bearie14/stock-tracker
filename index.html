@@ -1162,14 +1162,42 @@ function fetchFlowTrend(code, ci, si) {
 
 // 批量获取所有股票的分时数据
 function fetchAllTrends() {
+    var all = [];
     stockCategories.forEach(function(cat, ci) {
         cat.stocks.forEach(function(stock, si) {
-            if (stock.code) {
-                fetchPriceTrend(stock.code, ci, si);
-                fetchFlowTrend(stock.code, ci, si);
-            }
+            if (stock.code) all.push({ code: stock.code, ci: ci, si: si });
         });
     });
+    for (var i = 0; i < all.length; i++) {
+        (function(item, idx) {
+            setTimeout(function() {
+                fetchPriceTrendTencent(item.code, item.ci, item.si);
+            }, idx * 100);
+        })(all[i], i);
+    }
+}
+
+// 腾讯财经分时图（fetch + CORS）
+function fetchPriceTrendTencent(code, ci, si) {
+    var url = 'https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=' + code;
+    fetch(url).then(function(resp) { return resp.json(); }).then(function(data) {
+        try {
+            var raw = data && data.data && data.data[code];
+            if (!raw || !raw.data) return;
+            var rows = raw.data.data;
+            var prec = parseFloat(raw.data.prec);
+            if (!rows || rows.length === 0) return;
+            var trends = [];
+            for (var k = 0; k < rows.length; k++) {
+                var p = rows[k].split(' ');
+                if (p.length >= 2) trends.push(p[0] + ',0,' + p[1] + ',0,0,' + (p[2]||'0'));
+            }
+            if (!minuteData[code]) minuteData[code] = {};
+            minuteData[code].trends = trends;
+            if (!isNaN(prec) && stockData[code]) stockData[code].prevClose = prec;
+            drawPriceChart(ci, si, trends);
+        } catch(e) {}
+    }).catch(function() {});
 }
 
 // ========= 格式化主力净流入 =========
