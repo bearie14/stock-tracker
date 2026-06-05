@@ -698,7 +698,7 @@ function renderStructure() {
     // 自选板块的输入UI（始终显示）
     var inputDiv = document.createElement('div');
     inputDiv.style.cssText = 'margin:10px 20px 0; display:flex; gap:6px;';
-    inputDiv.innerHTML = '<input class="custom-input" id="customInput" placeholder="输入代码，如 sh603296" maxlength="9" />' +
+    inputDiv.innerHTML = '<input class="custom-input" id="customInput" placeholder="输入6位代码，如 603296" maxlength="6" />' +
         '<button class="custom-btn" id="customAddBtn">添加</button>' +
         '<button class="custom-btn dim" id="customClearBtn">清空</button>';
     container.appendChild(inputDiv);
@@ -1405,7 +1405,14 @@ function saveCustomStocks(codes) {
 }
 function addCustomStock(code) {
     code = String(code).trim().toLowerCase();
-    if (!code || !/^(sh|sz|bj)\d{6}$/.test(code)) { alert('代码格式有误，如：sh603296'); return; }
+    // 纯数字：自动补前缀
+    if (/^\d{6}$/.test(code)) {
+        var pre = code.substring(0, 3);  // 前三位更安全
+        if (pre === '600' || pre === '601' || pre === '603' || pre === '605' || code.charAt(0) === '6') code = 'sh' + code;
+        else if (pre === '000' || pre === '001' || pre === '002' || pre === '003' || pre === '300' || pre === '301') code = 'sz' + code;
+        else if (code.charAt(0) === '8' || code.charAt(0) === '4' || code.charAt(0) === '9') code = 'bj' + code;
+    }
+    if (!code || !/^(sh|sz|bj)\d{6}$/.test(code)) { alert('代码格式有误，如：603296'); return; }
     var codes = loadCustomStocks();
     if (codes.indexOf(code) >= 0) { alert('已存在'); return; }
     codes.push(code);
