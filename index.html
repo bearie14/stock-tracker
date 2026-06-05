@@ -286,6 +286,23 @@
             border-radius: 4px;
             font-family: 'Courier New', monospace;
         }
+        .stock-del-btn {
+            width: 18px; height: 18px;
+            border: none;
+            background: rgba(255,255,255,0.06);
+            border-radius: 4px;
+            color: #667;
+            font-size: 13px;
+            cursor: pointer;
+            line-height: 16px;
+            text-align: center;
+            padding: 0;
+            transition: all 0.15s;
+        }
+        .stock-del-btn:hover {
+            background: rgba(255,70,70,0.2);
+            color: #ff4d4d;
+        }
 
         .stock-price-info {
             display: flex;
@@ -734,7 +751,9 @@ function renderStructure() {
                 card.innerHTML =
                     '<div class="stock-header">' +
                         '<span class="stock-name">' + stock.name + ' <span style="font-size:0.7em;opacity:0.5;">↗</span></span>' +
+                        '<div style="display:flex;align-items:center;gap:6px;">' + (cat.name === '自选' ? '<button class="stock-del-btn" data-code="' + stock.code + '" title="移除自选">&times;</button>' : '') +
                         '<span class="stock-code">' + stock.code.substring(2) + '</span>' +
+                        '</div>' +
                     '</div>' +
                     '<div class="stock-price-info">' +
                         '<span class="stock-price">--</span>' +
@@ -809,6 +828,13 @@ function fetchAllStockData() {
         cb.onclick = function() { addCustomStock(ci.value); };
         cl.onclick = clearCustomStocks;
         ci.onkeydown = function(e) { if (e.key === 'Enter') addCustomStock(ci.value); };
+    }
+    // 自选删除按钮
+    var dels = document.querySelectorAll('.stock-del-btn');
+    for (var d = 0; d < dels.length; d++) {
+        (function(btn) {
+            btn.onclick = function(e) { e.stopPropagation(); removeCustomStock(btn.getAttribute('data-code')); };
+        })(dels[d]);
     }
 }
 
@@ -1286,7 +1312,8 @@ function updateDisplay(code, info) {
             else if (info.pct < 0) dir = 'down';
             card.className = 'stock-card ' + dir;
 
-            var pe = card.querySelector('.stock-price');
+            var sn = card.querySelector('.stock-name');
+            if (sn && info.name) sn.childNodes[0].textContent = info.name;
             if (pe) pe.textContent = info.price.toFixed(2);
 
             var cp = card.querySelector('.change-percent');
