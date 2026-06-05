@@ -1029,14 +1029,20 @@ function fetchFlowTrend(code, ci, si) {
 
 // 批量获取所有股票的分时数据
 function fetchAllTrends() {
+    var all = [];
     stockCategories.forEach(function(cat, ci) {
         cat.stocks.forEach(function(stock, si) {
-            if (stock.code) {
-                fetchPriceTrend(stock.code, ci, si);
-                fetchFlowTrend(stock.code, ci, si);
-            }
+            if (stock.code) all.push({ code: stock.code, ci: ci, si: si });
         });
     });
+    for (var i = 0; i < all.length; i++) {
+        (function(item, idx) {
+            setTimeout(function() {
+                fetchPriceTrendTencent(item.code, item.ci, item.si);
+                fetchFlowTrend(item.code, item.ci, item.si);
+            }, idx * 100);
+        })(all[i], i);
+    }
 }
 
 // ========= 格式化主力净流入 =========
