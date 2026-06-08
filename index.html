@@ -1742,7 +1742,7 @@ function getTradingProgress() {
 
 // 绘制单只股票的分时图（股价）
 
-function drawPriceChart(ci, si, trends) {
+function drawPriceChart(ci, si, trends, code) {
 
     var wrap = document.getElementById('price-chart-' + ci + '-' + si);
 
@@ -2061,27 +2061,9 @@ function fetchPriceTrendTencent(code, ci, si) {
             if (!minuteData[code]) minuteData[code] = {};
             minuteData[code].trends = trends;
             if (!isNaN(prec) && stockData[code]) stockData[code].prevClose = prec;
-            drawPriceChart(ci, si, trends);
+            drawPriceChart(ci, si, trends, code);
         } catch(e) {}
     }).catch(function() {});
-}
-
-        } catch(e) {}
-
-        try { delete window[cbName]; } catch(e) {}
-
-    };
-
-    var sc = document.createElement('script');
-
-    sc.src = 'https://push2his.eastmoney.com/api/qt/stock/trends2/get?secid=' + secid + '&fields1=f1,f2,f3,f4,f5,f6,f7,f8&fields2=f51,f52,f53,f54,f55,f56,f57,f58&iscr=0&cb=' + cbName;
-
-    sc.onload = function() { try { document.head.removeChild(sc); } catch(e) {} };
-
-    sc.onerror = function() { try { document.head.removeChild(sc); } catch(e) {} };
-
-    document.head.appendChild(sc);
-
 }
 
 
