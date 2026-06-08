@@ -1784,7 +1784,7 @@ function drawPriceChart(ci, si, trends) {
 
                 closes.push(close);
 
-                if (firstOpen === null) firstOpen = parseFloat(parts[1]);
+                if (firstOpen === null) firstOpen = (stockData[code] && stockData[code].prevClose) ? stockData[code].prevClose : parseFloat(parts[1]);
 
             }
 
@@ -1840,7 +1840,7 @@ function drawPriceChart(ci, si, trends) {
 
 
 
-    var isUp = closes.length > 0 && closes[closes.length - 1] >= firstOpen;
+    var isUp = closes.length > 0 && closes[closes.length - 1] >= (stockData[code] && stockData[code].prevClose ? stockData[code].prevClose : firstOpen);
 
     var color = isUp ? '#ff4d4d' : '#00c853';
 
@@ -2040,29 +2040,31 @@ function drawFlowChart(ci, si, klines) {
 
 // 获取单只股票的分时数据（股价）
 
-function fetchPriceTrend(code, ci, si) {
-
-    var secid = codeToSecid(code);
-
-    if (!secid) return;
-
-    var cbName = 'em_trend_' + ci + '_' + si + '_' + Date.now();
-
-    window[cbName] = function(resp) {
-
+function fetchPriceTrendTencent(code, ci, si) {
+    var url = 'https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=' + code;
+    fetch(url).then(function(resp) { return resp.json(); }).then(function(data) {
         try {
-
-            if (resp && resp.data && resp.data.trends) {
-
-                var trends = resp.data.trends;
-
-                if (!minuteData[code]) minuteData[code] = {};
-
-                minuteData[code].trends = trends;
-
-                drawPriceChart(ci, si, trends);
-
+            var raw = data && data.data && data.data[code];
+            if (!raw || !raw.data) return;
+            var rows = raw.data.data;
+            var prec = parseFloat(raw.data.prec);
+            if (!rows || rows.length === 0) return;
+            var trends = [];
+            for (var k = 0; k < rows.length; k++) {
+                var p = rows[k].split(' ');
+                if (p.length >= 2) {
+                    var price = parseFloat(p[1]);
+                    var open = (k === 0 && !isNaN(prec)) ? prec : price;
+                    trends.push(p[0] + ',' + open + ',' + price + ',' + price + ',' + price + ',' + (p[2] || '0') + ',0,' + price);
+                }
             }
+            if (!minuteData[code]) minuteData[code] = {};
+            minuteData[code].trends = trends;
+            if (!isNaN(prec) && stockData[code]) stockData[code].prevClose = prec;
+            drawPriceChart(ci, si, trends);
+        } catch(e) {}
+    }).catch(function() {});
+}
 
         } catch(e) {}
 
@@ -2140,7 +2142,7 @@ function fetchAllTrends() {
 
             if (stock.code) {
 
-                fetchPriceTrend(stock.code, ci, si);
+                fetchPriceTrendTencent(stock.code, ci, si);
 
                 fetchFlowTrend(stock.code, ci, si);
 
