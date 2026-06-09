@@ -1821,7 +1821,7 @@ function drawPriceChart(ci, si, trends, code) {
 
     var progress = getTradingProgress();
 
-    var drawCount = Math.ceil(closes.length * progress);
+    var drawCount = closes.length;
 
 
 
@@ -2042,7 +2042,7 @@ function drawFlowChart(ci, si, klines) {
 // 获取单只股票的分时数据（股价）
 
 function fetchPriceTrendTencent(code, ci, si) {
-    var url = 'https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=' + code;
+    var url = 'https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=' + code + '&_t=' + Date.now();
     fetch(url).then(function(resp) { return resp.json(); }).then(function(data) {
         try {
             var raw = data && data.data && data.data[code];
