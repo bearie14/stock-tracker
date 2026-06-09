@@ -1415,6 +1415,7 @@ function renderStructure() {
         var catDiv = document.createElement('div');
 
         catDiv.className = 'category';
+        catDiv.id = 'category-' + ci;
 
         catDiv.innerHTML = '<div class="category-title"><span>' + cat.name + '</span><span class="category-stats" id="stats-' + ci + '"></span></div><div class="stock-grid" id="grid-' + ci + '"></div>';
 
@@ -2394,6 +2395,39 @@ function processStock(code, dataStr) {
 
 // ========== 更新 DOM ==========
 
+// 板块按平均涨幅排序（自选始终排第一）
+function sortCategories() {
+    try {
+        var container = document.getElementById('stockContainer');
+        if (!container) { console.log('[sortCategories] 容器不存在'); return; }
+
+        var customName = '自选';
+
+        // 计算每块平均涨幅，用 ci（数组下标）作为 id
+        var avgs = stockCategories.map(function(cat, ci) {
+            var sum = 0, cnt = 0;
+            cat.stocks.forEach(function(s) {
+                var d = stockData[s.code];
+                if (d && !isNaN(d.pct)) { sum += d.pct; cnt++; }
+            });
+            return { ci: ci, avg: cnt > 0 ? sum / cnt : -Infinity, name: cat.name };
+        });
+
+        // 自选排最前，其余按平均涨幅降序（涨得多的排前面）
+        avgs.sort(function(a, b) {
+            if (a.name === customName) return -1;
+            if (b.name === customName) return 1;
+            return b.avg - a.avg;
+        });
+
+        // 按新顺序重排 DOM
+        avgs.forEach(function(item) {
+            var el = document.getElementById('category-' + item.ci);
+            if (el) container.appendChild(el);
+        });
+    } catch(e) { console.error('[sortCategories] 错误:', e); }
+}
+
 function updateDisplay(code, info) {
 
     stockCategories.forEach(function(cat, ci) {
@@ -2749,6 +2783,10 @@ function init() {
     fetchAllStockData();
 
     refreshInterval = setInterval(fetchAllStockData, 8000);
+
+    // 板块按涨幅排序：3秒后执行一次（等数据加载），然后每10秒执行一次
+    setTimeout(sortCategories, 3000);
+    setInterval(sortCategories, 10000);
 
 }
 
