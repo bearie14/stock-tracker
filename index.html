@@ -1471,6 +1471,8 @@ function renderStructure() {
 
                     '<div class="stock-header">' +
 
+                        (cat.name === '自选' ? '<button class="stock-del-btn" data-code="' + stock.code + '" title="删除">×</button>' : '') +
+
                         '<span class="stock-name">' + stock.name + ' <span style="font-size:0.7em;opacity:0.5;">↗</span></span>' +
 
                         '<span class="stock-code">' + stock.code.substring(2) + '</span>' +
@@ -2814,6 +2816,20 @@ function init() {
             }
         });
     }
+
+    // ===== 自选股票删除按钮事件绑定 =====
+    setTimeout(function() {
+        var delBtns = document.querySelectorAll('.stock-del-btn');
+        delBtns.forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                var code = this.getAttribute('data-code');
+                if (code && confirm('确定删除 ' + code + '？')) {
+                    removeCustomStock(code);
+                }
+            });
+        });
+    }, 500);
 
 }
 
