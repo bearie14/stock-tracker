@@ -2788,6 +2788,33 @@ function init() {
     setTimeout(sortCategories, 3000);
     setInterval(sortCategories, 10000);
 
+    // ===== 自选板块按钮事件绑定 =====
+    var addBtn = document.getElementById('customAddBtn');
+    var clearBtn = document.getElementById('customClearBtn');
+    var inputEl = document.getElementById('customInput');
+    if (addBtn && inputEl) {
+        addBtn.addEventListener('click', function() {
+            var code = inputEl.value.trim();
+            if (code.length === 6 && /^\d{6}$/.test(code)) {
+                addCustomStock(code);
+                inputEl.value = '';
+            }
+        });
+        // 回车也触发添加
+        inputEl.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') addBtn.click();
+        });
+    }
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            if (confirm('确定清空所有自选股票？')) {
+                localStorage.removeItem('customStocks');
+                // 重新初始化
+                init();
+            }
+        });
+    }
+
 }
 
 
